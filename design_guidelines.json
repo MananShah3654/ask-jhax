@@ -1,0 +1,91 @@
+{
+  "project_name": "jhax.ai",
+  "archetype": "Warm Hospitality & Performance Pro (Organic Warmth + Tactical Precision)",
+  "design_direction": "Warm, hospitality-inspired. Tactile, premium editorial feel reminiscent of high-end dining menu craftsmanship combined with a high-density, action-oriented operator dashboard.",
+  "persona": {
+    "name": "jhax",
+    "role": "Restaurant COO & Strategic Co-Pilot (15+ Years Experience)",
+    "tone": "Direct, commercially savvy, warm, data-driven, confident, zero corporate fluff, plain-spoken, actionable."
+  },
+  "typography": {
+    "headings": {
+      "family": "Playfair Display, Cormorant Garamond, serif",
+      "h1": "text-3xl sm:text-4xl lg:text-5xl font-serif font-bold tracking-tight text-[#1E1B18]",
+      "h2": "text-2xl sm:text-3xl font-serif font-semibold tracking-tight text-[#1E1B18]",
+      "h3": "text-xl sm:text-2xl font-serif font-medium text-[#2D2824]",
+      "h4": "text-lg font-sans font-bold text-[#1E1B18]"
+    },
+    "body": {
+      "family": "Plus Jakarta Sans, Inter, sans-serif",
+      "style": "text-sm sm:text-base leading-relaxed text-[#3C3530]"
+    },
+    "metrics_mono": {
+      "family": "JetBrains Mono, monospace",
+      "style": "font-mono text-sm tracking-wide text-[#78350F]"
+    },
+    "overline_labels": {
+      "style": "uppercase tracking-[0.2em] text-xs font-semibold text-[#854D0E]"
+    }
+  },
+  "colors": {
+    "background_main": "#FAF8F5",
+    "background_secondary": "#F4EFEA",
+    "surface_card": "#FFFFFF",
+    "surface_tinted": "#F5EFE6",
+    "border_subtle": "#E8DEC8",
+    "border_strong": "#D4C5A9",
+    "text_primary": "#1E1B18",
+    "text_secondary": "#574E46",
+    "text_muted": "#8C7E72",
+    "primary_brand": "#B45309",
+    "primary_brand_hover": "#92400E",
+    "primary_brand_active": "#78350F",
+    "accent_terracotta": "#C2410C",
+    "accent_olive": "#65A30D",
+    "accent_gold": "#D97706",
+    "dark_badge": "#2D251E",
+    "success": "#15803D",
+    "warning": "#B45309",
+    "danger": "#B91C1C",
+    "chart_colors": ["#B45309", "#C2410C", "#65A30D", "#D97706", "#451A03"]
+  },
+  "layout_architecture": {
+    "structure": "3-Panel Flexible Hospitality Dashboard",
+    "header": "Sticky Glassmorphic Header (backdrop-blur-md bg-[#FAF8F5]/90 border-b border-[#E8DEC8]) featuring active restaurant quick-switcher, location pin, live market status pill, and reset/add buttons.",
+    "left_sidebar": "Restaurant Profile & Market Snapshot Panel (collapsible on mobile). Displays cuisine type, price tier, rating, active local context (events, weather impact, nearby competitor moves), and top menu margin drivers.",
+    "center_main": "Jhax Co-Pilot Chat Engine & Rich Canvas. Features auto-started Restaurant Snapshot, step-by-step COO reasoning accordion, formatted markdown tables, copy-paste caption generators, execution checklists, and quick prompt chips.",
+    "right_panel": "Action & Execution Drawer (Calculators, Marketing Drafts, Menu Re-engineering Canvas, Staff Briefing Notes)."
+  },
+  "component_guidelines": {
+    "RestaurantSelector": "Interactive quick-picker with sample benchmark restaurants (e.g. 'Osteria Rustica - Italian Fine Casual', 'The Smoked Barrel - BBQ & Craft Taphouse', 'Green Sprout - Plant-based Fast Casual') + custom entry modal with input for restaurant name, city/neighborhood, and cuisine.",
+    "ResearchingState": "Tactile data-gathering state showing live steps ('Scraping current menu & pricing...', 'Analyzing Yelp & Google Reviews sentiment...', 'Checking local events & weather forecasts...', 'Running competitor benchmarking...').",
+    "SnapshotCard": "Auto-triggered first AI message. Styled as an executive brief on parchment background with gold accent border, key KPIs, competitor radar, neighborhood opportunity, and immediate quick-win recommendation.",
+    "ChatInterface": "Rich markdown renderer with custom code/draft boxes featuring instant copy button, interactive checkboxes for execution steps, metric pill badges, and 3-5 high-impact follow-up question chips.",
+    "PromptChips": "Horizontal scrollable chip bar with categories like 'Food Cost Reduction', 'Weekend Promotion', 'Menu Re-pricing', 'Staff Retention', 'Social Caption Draft'.",
+    "DraftBox": "Copy-paste ready box with one-click 'Copy to Clipboard', 'Tweak Tone', and 'Export as PDF/Print' triggers."
+  },
+  "image_urls": {
+    "restaurant_hero_1": "https://images.unsplash.com/photo-1774979517545-1897d30b5d27?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjA1Mjh8MHwxfHNlYXJjaHszfHxjb3p5JTIwbHV4dXJ5JTIwcmVzdGF1cmFudCUyMGludGVyaW9yJTIwZGluaW5nJTIwY2hlZiUyMGNyYWZ0JTIwZm9vZHxlbnwwfHx8fDE3ODk1NjAyNzB8MA&ixlib=rb-4.1.0&q=85",
+    "restaurant_bar_2": "https://images.unsplash.com/photo-1645492884526-654081e772de?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjA1Mjh8MHwxfHNlYXJjaHwxfHxjb3p5JTIwbHV4dXJ5JTIwcmVzdGF1cmFudCUyMGludGVyaW9yJTIwZGluaW5nJTIwY2hlZiUyMGNyYWZ0JTIwZm9vZHxlbnwwfHx8fDE3ODk1NjAyNzB8MA&ixlib=rb-4.1.0&q=85",
+    "chef_plating_3": "https://images.unsplash.com/photo-1572715376701-98568319fd0b?crop=entropy&cs=srgb&fm=jpg&ixid=M3w3NDQ2NDJ8MHwxfHNlYXJjaHwxfHxnb3VybWV0JTIwZm9vZCUyMGNoZWYlMjBwbGF0aW5nJTIwc3RlYWslMjBwYXN0YSUyMGJpc3Ryb3xlbnwwfHx8fDE3ODk1NjAyNzd8MA&ixlib=rb-4.1.0&q=85",
+    "chef_action_4": "https://images.unsplash.com/photo-1577219491135-ce391730fb2c?crop=entropy&cs=srgb&fm=jpg&ixid=M3w3NDQ2NDJ8MHwxfHNlYXJjaHwyfHxnb3VybWV0JTIwZm9vZCUyMGNoZWYlMjBwbGF0aW5nJTIwc3RlYWslMjBwYXN0YSUyMGJpc3Ryb3xlbnwwfHx8fDE3ODk1NjAyNzd8MA&ixlib=rb-4.1.0&q=85",
+    "dining_ambiance_5": "https://images.jpg.pexels.com/photos/33097099/pexels-photo-33097099.jpeg?auto=compress&cs=tinysrgb&dpr=2&h=650&w=940"
+  },
+  "instructions_to_main_agent": [
+    "Build a seamless, high-polished single-page React app (with backend FastAPI endpoints if needed or mock API handler) that requires NO login.",
+    "Initial landing view allows user to pick a sample restaurant (e.g. Osteria Rustica, Smoked Barrel BBQ, Green Sprout, etc.) or type their own restaurant name + location.",
+    "Upon selecting/submitting, transition into an immersive 3-step animated data-gathering state ('Analyzing menu price elasticities...', 'Scanning local competitor promotions...', 'Gathering sentiment from 420+ online reviews...').",
+    "Auto-trigger jhax's initial message with a beautifully crafted 'Restaurant Snapshot' executive summary (market position, benchmark ratings, 3 key strengths, 2 vulnerabilities, and 1 high-impact non-obvious opportunity).",
+    "Provide interactive quick prompt chips below the chat box (e.g., 'How can I bump my prime cost down 3%?', 'Draft an Instagram caption for Friday's chef special', 'Analyze my weekend brunch vs competitors', 'Give me a 5-step staff incentive plan').",
+    "Ensure jhax responses include a collapsible 'jhax Reasoning Process' section (demonstrating 15-year COO logic), clear execution steps with interactive checkboxes, quantitative data tables, and dedicated copy-paste boxes for draft content.",
+    "Include a dynamic right-hand panel or tab view with interactive tools: Prime Cost Calculator, Menu Engineering Matrix (Star/Plowhorse/Puzzle/Dog), and Social Caption Studio.",
+    "Add test IDs (`data-testid`) to all key interactive elements (e.g. `restaurant-select-option`, `search-restaurant-input`, `start-copilot-button`, `chat-send-button`, `copy-draft-button`, `prompt-chip`)."
+  ],
+  "UNIVERSAL GUIDELINES FOR MAIN AGENT": [
+    "Avoid generic blue/purple SaaS templates. Stick strictly to warm ivory, sandstone, warm brass amber, and dark espresso accents.",
+    "Use generous padding (p-6, p-8) with subtle warm borders (border-[#E8DEC8]) to create tactile, premium restaurant menu elegance.",
+    "Ensure every chat response has clear actionable value: clear numbers, copyable content, step-by-step checklists.",
+    "All buttons must have distinct hover states with smooth CSS transitions (`transition-colors duration-200`).",
+    "Ensure high accessibility and contrast compliance."
+  ]
+}
