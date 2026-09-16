@@ -36,6 +36,15 @@ logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(level
 logger = logging.getLogger("jhax")
 
 
+def now_line() -> str:
+    now = datetime.now(timezone.utc)
+    return (
+        f"Today's date is {now.strftime('%A, %B %d, %Y')} (UTC). "
+        "Anchor every 'today', 'this week', 'upcoming', 'next N weeks' and seasonal reference to THIS date, "
+        "and make all event/date web searches use this current timeframe — never an older date."
+    )
+
+
 # ---------------------------------------------------------------------------
 # jhax system prompt
 # ---------------------------------------------------------------------------
@@ -222,7 +231,7 @@ async def do_web_search(query: str):
         "names you actually find."
     )
     chat = build_search_chat(sys)
-    resp = await chat.send_message_with_tools(UserMessage(text=query))
+    resp = await chat.send_message_with_tools(UserMessage(text=f"{now_line()}\n\n{query}"))
     text = resp.content or ""
     return text, _extract_citations(resp)
 
@@ -351,7 +360,8 @@ async def research_restaurant(req: ResearchRequest):
         cuisine=req.cuisine or "unknown",
     )
     chat = build_search_chat(
-        "You research restaurants using live Google Search and return strict JSON only. Prefer real, cited facts from search results over guesses.",
+        "You research restaurants using live Google Search and return strict JSON only. Prefer real, cited facts from search results over guesses. "
+        + now_line(),
     )
     raw = await run_full(chat, prompt)
     try:
@@ -416,7 +426,7 @@ async def snapshot_stream(rid: str):
     if not doc:
         raise HTTPException(404, "Restaurant not found")
 
-    system = JHAX_SYSTEM_PROMPT + "\n\n## RESTAURANT DATA (already known)\n" + restaurant_context_block(doc)
+    system = JHAX_SYSTEM_PROMPT + "\n\n## TODAY\n" + now_line() + "\n\n## RESTAURANT DATA (already known)\n" + restaurant_context_block(doc)
     trigger = f"""A restaurant has just been loaded and the owner is looking at an empty chat. Speak FIRST. Produce the **Restaurant Snapshot** now — this is your one shot to prove you already get their business. Keep it tight (6-10 lines), no filler, no "I hope this helps" energy — read like a consultant's opening line in a meeting.
 
 Structure it as:
@@ -465,6 +475,7 @@ async def chat_stream(rid: str, req: ChatRequest):
 
     system = (
         JHAX_SYSTEM_PROMPT
+        + "\n\n## TODAY\n" + now_line()
         + "\n\n## LIVE WEB SEARCH (critical)\nYou have a `web_search` tool backed by live Google Search. Call it whenever the owner asks about ANY current, real-world fact — including this restaurant's OWN details: business/operating hours, address, phone, current menu prices, rating, plus competitors, nearby restaurants, reviews, and local events.\n\nHARD RULE: You must NEVER tell the owner you 'don't have' something, that it's 'not in the loaded data', or refuse to answer a factual question BEFORE you have actually called `web_search` to look it up. If the loaded restaurant data is missing a fact the owner asks about, silently call `web_search` first, then answer with what you find. Only say you couldn't find it if the search genuinely returns nothing — and even then, say you searched and came up empty. Prefer real, specific, named results with concrete numbers over generic guesses, and briefly note when you're drawing on fresh search findings."
         + "\n\n## RESTAURANT DATA (already known)\n" + restaurant_context_block(doc)
         + ("\n\n## CONVERSATION SO FAR\n" + convo if convo.strip() else "")
