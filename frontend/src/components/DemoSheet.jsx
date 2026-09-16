@@ -22,8 +22,8 @@ export default function DemoSheet({ onSend, disabled }) {
   return (
     <Sheet open={open} onOpenChange={setOpen}>
       <SheetTrigger asChild>
-        <button data-testid="demo-script-button"
-          className="flex items-center gap-1.5 px-3 h-9 rounded-lg bg-[#2D251E] text-sm font-medium text-white hover:bg-[#1E1B18] transition-colors duration-200">
+        <button data-testid="demo-script-button" disabled={disabled}
+          className="flex items-center gap-1.5 px-3 h-9 rounded-lg bg-[#2D251E] text-sm font-medium text-white hover:bg-[#1E1B18] disabled:opacity-40 disabled:cursor-not-allowed transition-colors duration-200">
           <Play size={15} className="fill-white" /> <span className="hidden sm:inline">Demo</span>
         </button>
       </SheetTrigger>

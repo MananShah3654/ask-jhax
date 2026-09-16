@@ -1,0 +1,18 @@
+{
+  "summary": "Verified both NEW features + regressions on jhax.ai co-pilot. Backend: added test_chat_stream_sources_event_shape asserting the /api/restaurants/{id}/chat/stream SSE emits {type:'sources'} events whose items are objects containing string 'title' and 'url' (starting with http). Test passed for competitor question in ~54s. Frontend (Playwright, 1440x900): clicked 'The Smoked Barrel' sample -> researching state -> chat view -> snapshot-message auto-appeared and completed streaming. Opened DemoSheet: 10 demo-question items rendered, Q1 disabled (auto-snapshot note), Q2 enabled. Clicking Q2 ('Who are my real competitors nearby...') closed the sheet, appended a user-message bubble, streamed reply that showed search-pill and finally rendered a sources-row with 19 clickable source-link chips displaying clean publisher names (globefeed.com, facebook.com, michelin.com, oddwoodbrewing.com, order.online, austinchronicle.com, reddit.com, toasttab.com, parishbarbecue.com, etc.), each with target=_blank and hrefs pointing to Google's vertexaisearch grounding-redirect URLs (as expected). Regression: chat-input + chat-send-button flow still works (2nd user-message posted after Q2 flow).",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {"ui_bugs": [], "integration_issues": [], "design_issues": []},
+  "test_report_links": ["/app/backend/tests/backend_test.py", "/app/test_reports/pytest/pytest_results.xml"],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "DemoSheet: while snapshot is streaming, ALL demo-questions (including enabled ones) are disabled via the parent-passed `disabled={streaming}` prop. Working as designed, but the Demo button itself is not disabled — a user can open the sheet and see everything greyed out. Consider disabling the Demo button too, or dropping the streaming gate on individual questions and instead queueing the send.",
+    "streamEndpoint (api.js): still calls onDone twice on happy path (once on explicit 'done' event, once after loop) — carried over from previous iteration; low priority.",
+    "MessageBubble Sources: source-link chips have max-w-[220px] with truncate, but the container is `flex flex-wrap` with 19 chips — layout was fine at 1440px but could get cramped on narrow viewports; visual only."
+  ],
+  "updated_files": ["/app/backend/tests/backend_test.py"],
+  "success_rate": {"backend": "100% (15/15 including new sources test; only sources test executed in this iteration since prior 14 were green)", "frontend": "100% (all UI flows verified)"},
+  "seed_data_creation": "None (reused existing restaurants via _existing_or_new_rid for backend; used sample 'The Smoked Barrel' via UI which auto-creates one).",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Live chat with web_search + sources takes ~30-60s; keep timeout>=180s for streams. Sources SSE items are {title,url} objects — url is a Google vertexaisearch redirect (hostname vertexaisearch.cloud.google.com) but title is the clean publisher (e.g. michelin.com). Frontend's Sources component uses s.title || hostname(s.url) so clean labels always show. DemoSheet demo-questions are disabled while `streaming` prop is true — must wait for snapshot streaming to finish before clicking demo items in UI tests."
+}

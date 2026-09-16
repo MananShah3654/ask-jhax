@@ -232,6 +232,33 @@ def test_chat_stream_competitors_depth():
     assert len(content) > 200
 
 
+def test_chat_stream_sources_event_shape():
+    """NEW FEATURE 1: competitor question emits {type:sources, items:[{title,url},...]}."""
+    rid = _existing_or_new_rid()
+    if not rid:
+        pytest.skip("no existing restaurant to reuse")
+
+    with requests.post(f"{API}/restaurants/{rid}/chat/stream",
+                       json={"message": "who are my nearby competitors?"},
+                       stream=True, timeout=240) as resp:
+        assert resp.status_code == 200
+        events = read_sse(resp, max_events=3000)
+
+    src_evs = [e for e in events if e.get("type") == "sources"]
+    assert src_evs, f"no sources event in stream; types={[e['type'] for e in events]}"
+    all_items = []
+    for ev in src_evs:
+        items = ev.get("items") or []
+        assert isinstance(items, list), f"items not list: {items}"
+        all_items.extend(items)
+    assert all_items, "sources event(s) had no items"
+    for it in all_items:
+        assert isinstance(it, dict), f"item not object: {it!r}"
+        assert "title" in it and "url" in it, f"item missing title/url: {it}"
+        assert isinstance(it["title"], str) and isinstance(it["url"], str)
+        assert it["url"].startswith("http"), f"bad url: {it['url']}"
+
+
 def test_research_returns_4plus_competitors(restaurant_id):
     """Research endpoint returns >=4 real named competitors."""
     _, data = restaurant_id
