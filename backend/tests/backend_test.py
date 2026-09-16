@@ -140,6 +140,68 @@ def test_chat_stream_and_continuity(restaurant_id):
     assert roles.count("assistant") >= 3  # snapshot + 2 chat replies
 
 
+# ---- Bug fix: chat stream with web_search tool (no reasoning_effort error) ----
+def _existing_or_new_rid():
+    r = requests.get(f"{API}/restaurants", timeout=15)
+    if r.status_code == 200 and r.json():
+        return r.json()[0]["id"]
+    return None
+
+
+def test_chat_stream_triggers_web_search_no_error():
+    """BUG FIX 1: factual question must not throw reasoning_effort error;
+    should emit at least one tool event and produce a real answer."""
+    rid = _existing_or_new_rid()
+    if not rid:
+        pytest.skip("no existing restaurant to reuse")
+
+    with requests.post(f"{API}/restaurants/{rid}/chat/stream",
+                       json={"message": "What are my business hours? Please look them up."},
+                       stream=True, timeout=180) as resp:
+        assert resp.status_code == 200
+        events = read_sse(resp, max_events=2000)
+
+    types = [e["type"] for e in events]
+    assert "error" not in types, f"got error events: {[e for e in events if e['type']=='error']}"
+    assert "tool" in types, f"expected a tool event; got types {set(types)}"
+    tool_evs = [e for e in events if e["type"] == "tool"]
+    assert any(e.get("name") == "web_search" for e in tool_evs)
+    assert types[-1] == "done"
+
+    content = "".join(e.get("content", "") for e in events if e["type"] == "delta")
+    assert len(content) > 100
+    low = content.lower()
+    assert "i don't have verified business hours" not in low, "assistant still refused"
+
+
+def test_chat_stream_competitors_depth():
+    """BUG FIX 2: competitor query must trigger web_search and mention multiple real names."""
+    rid = _existing_or_new_rid()
+    if not rid:
+        pytest.skip("no existing restaurant to reuse")
+
+    with requests.post(f"{API}/restaurants/{rid}/chat/stream",
+                       json={"message": "Who are my nearby burger competitors? Search the web and list real named businesses."},
+                       stream=True, timeout=180) as resp:
+        assert resp.status_code == 200
+        events = read_sse(resp, max_events=2000)
+
+    types = [e["type"] for e in events]
+    assert "error" not in types
+    assert "tool" in types, f"expected web_search tool event; got {set(types)}"
+    content = "".join(e.get("content", "") for e in events if e["type"] == "delta")
+    assert len(content) > 200
+
+
+def test_research_returns_4plus_competitors(restaurant_id):
+    """Research endpoint returns >=4 real named competitors."""
+    _, data = restaurant_id
+    comps = data.get("competitors") or []
+    assert len(comps) >= 4, f"only {len(comps)} competitors: {[c.get('name') for c in comps]}"
+    names = [c.get("name", "") for c in comps]
+    assert all(len(n) > 1 for n in names)
+
+
 # ---- Delete ----
 def test_delete_restaurant(restaurant_id):
     rid, _ = restaurant_id

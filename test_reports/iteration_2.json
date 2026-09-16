@@ -1,0 +1,18 @@
+{
+  "summary": "Verified BUG FIX 1 (tool calling on gpt-5.6-terra with reasoning_effort='none') and BUG FIX 2 (competitor depth via live web_search). 11/11 pytest backend tests pass including 3 new tests: (a) chat stream to a factual question emits web_search tool event, no error events, and produces >100 chars of real content with no 'I don't have verified business hours' refusal; (b) burger competitor query emits web_search tool event; (c) research endpoint returns >=4 competitors. Regression tests still green: snapshot/stream persists is_snapshot=true, chat continuity (canary 4271) works. Frontend E2E: picked sample restaurant Osteria Rustica -> snapshot rendered (1254 chars) -> sent 'nearby burger competitors' via chat-input+chat-send-button -> data-testid=search-pill appeared with query 'best burger restaurants near Osteria Rustica North End Boston burgers' -> real answer with 5 named competitors (Neptune Oyster, Mare Oyster Bar, Mangia Mangia, Gordon Ramsay Burger, jm Curley) rendered in a markdown table. Prompt-chip 'Cut my prime cost 3%' click triggered another streaming assistant reply.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {"ui_bugs": [], "integration_issues": [], "design_issues": []},
+  "test_report_links": ["/app/backend/tests/backend_test.py", "/app/test_reports/pytest/pytest_results.xml"],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "build_chat/build_search_chat still accept an unused search_ctx param (dead arg) — carried over from iter 1.",
+    "handleTool overwrites searchStatus on every tool event; if GPT triggers multiple web_search calls in one turn, only the last query is shown in the pill. Consider aggregating or listing multiple pills.",
+    "streamEndpoint calls onDone twice on happy path (once when a 'done' event arrives, and again after the reader loop ends). Both hit finalize() but the second is a no-op because 'streaming' id is already renamed — still, dedupe for cleanliness."
+  ],
+  "updated_files": ["/app/backend/tests/backend_test.py"],
+  "success_rate": {"backend": "100% (11/11)", "frontend": "100%"},
+  "seed_data_creation": "TEST_Smoked Barrel is created and deleted within backend tests. Reused an existing restaurant (Osteria Rustica sample) for tool-call assertions.",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "For chat-stream tests, use timeout>=180s because live web_search (Gemini) adds 20-30s. Search pill data-testid='search-pill' shows on assistant-message while msg.searchStatus is set. If reusing existing restaurants, GET /api/restaurants returns latest first; assume at least one is present in dev DB."
+}

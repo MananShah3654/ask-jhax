@@ -26,8 +26,9 @@ Restaurant owner/operator wanting fast, credible, execution-focused strategic ad
 
 ## Implemented (2026-06-16)
 - Backend endpoints: `POST /api/restaurants/research`, `GET /api/restaurants`, `GET /api/restaurants/{id}`, `DELETE /api/restaurants/{id}`, `POST /api/restaurants/{id}/snapshot/stream` (SSE), `POST /api/restaurants/{id}/chat/stream` (SSE). Messages persisted in Mongo with conversation continuity.
-- Frontend: Landing, ResearchingState (animated steps), CoPilot 3-panel layout, ChatPanel (chips + composer), MessageBubble (snapshot styling, streaming cursor), ProfileSidebar, ToolsPanel (working Prime Cost calc), Markdown renderer with copy-able draft boxes.
-- Verified: 8/8 backend tests + full frontend E2E pass (100%).
+- **Live web search in chat:** GPT 5.6 calls a custom `web_search` tool mid-conversation (backed by Gemini googleSearch); requires `reasoning_effort="none"` for function tools on gpt-5.6-terra. jhax now answers competitor/hours/market questions with real, current, named data. Research pulls >=4 real competitors. UI shows a "Searched the web" pill on answers.
+- Frontend: Landing, ResearchingState, CoPilot 3-panel layout, ChatPanel, MessageBubble (snapshot + search pill + streaming cursor), ProfileSidebar, ToolsPanel (Prime Cost calc), Markdown renderer with copy-able draft boxes.
+- Verified: 11/11 backend tests + full frontend E2E pass (100%).
 
 ## Backlog / Remaining
 - P1: Saved chat history & multi-restaurant switcher (persisted list already in DB; add UI switcher).
