@@ -214,7 +214,7 @@ WEB_SEARCH_TOOL = [{
 }]
 
 
-async def do_web_search(query: str) -> str:
+async def do_web_search(query: str):
     sys = (
         "You are a live web search tool. Use Google Search to find current, specific, real facts. "
         "Return a concise factual summary with concrete named businesses, numbers, ratings and "
@@ -222,7 +222,30 @@ async def do_web_search(query: str) -> str:
         "names you actually find."
     )
     chat = build_search_chat(sys)
-    return await run_full(chat, query)
+    resp = await chat.send_message_with_tools(UserMessage(text=query))
+    text = resp.content or ""
+    return text, _extract_citations(resp)
+
+
+def _extract_citations(resp):
+    out, seen = [], set()
+    try:
+        anns = resp.raw.choices[0].message.annotations or []
+    except Exception:
+        anns = []
+    for a in anns:
+        try:
+            c = a.get("url_citation") if isinstance(a, dict) else getattr(a, "url_citation", None)
+            if not c:
+                continue
+            url = c.get("url") if isinstance(c, dict) else getattr(c, "url", None)
+            title = c.get("title") if isinstance(c, dict) else getattr(c, "title", None)
+            if url and url not in seen:
+                seen.add(url)
+                out.append({"title": title or "source", "url": url})
+        except Exception:
+            continue
+    return out[:6]
 
 
 async def stream_chat_events(chat: LlmChat, text: str):
@@ -248,10 +271,12 @@ async def stream_chat_events(chat: LlmChat, text: str):
                 q = args.get("query", "")
                 yield {"type": "tool", "name": "web_search", "query": q}
                 try:
-                    result = await do_web_search(q)
+                    result, sources = await do_web_search(q)
                 except Exception as e:
                     logger.error(f"web_search failed: {e}")
-                    result = "Search unavailable right now."
+                    result, sources = "Search unavailable right now.", []
+                if sources:
+                    yield {"type": "sources", "items": sources}
                 chat.add_tool_result(tc.id, json.dumps({"query": q, "results": result}))
             else:
                 chat.add_tool_result(tc.id, json.dumps({}))
@@ -455,6 +480,8 @@ async def chat_stream(rid: str, req: ChatRequest):
                     yield sse({"type": "delta", "content": evt["content"]})
                 elif evt["type"] == "tool":
                     yield sse({"type": "tool", "name": evt.get("name"), "query": evt.get("query")})
+                elif evt["type"] == "sources":
+                    yield sse({"type": "sources", "items": evt.get("items", [])})
         except Exception as e:
             logger.error(f"chat stream error: {e}")
             yield sse({"type": "error", "content": "Something went wrong. Try again."})

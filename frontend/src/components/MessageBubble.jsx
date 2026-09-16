@@ -1,6 +1,26 @@
 import { motion } from "framer-motion";
-import { ChefHat, Sparkles, Globe } from "lucide-react";
+import { ChefHat, Sparkles, Globe, ExternalLink } from "lucide-react";
 import { Markdown } from "@/components/Markdown";
+
+const hostname = (u) => {
+  try { return new URL(u).hostname.replace(/^www\./, ""); } catch { return u; }
+};
+
+const Sources = ({ items }) => (
+  <div className="mt-3 pt-3 border-t border-[#EAD9B4]/60" data-testid="sources-row">
+    <div className="text-[10px] uppercase tracking-[0.2em] font-semibold text-[#854D0E] mb-1.5">Sources</div>
+    <div className="flex flex-wrap gap-1.5">
+      {items.map((s, i) => (
+        <a key={i} href={s.url} target="_blank" rel="noopener noreferrer" data-testid="source-link"
+          className="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-white border border-[#E8DEC8] text-[11px] font-medium text-[#574E46] hover:border-[#B45309] hover:text-[#78350F] transition-colors duration-200 max-w-[220px]">
+          <Globe size={11} className="text-[#B45309] flex-shrink-0" />
+          <span className="truncate">{s.title || hostname(s.url)}</span>
+          <ExternalLink size={10} className="flex-shrink-0 opacity-60" />
+        </a>
+      ))}
+    </div>
+  </div>
+);
 
 const SearchPill = ({ query, active }) => (
   <div className="inline-flex items-center gap-1.5 mb-2 px-2.5 py-1 rounded-full bg-[#EAF2FB] border border-[#CFE0F2] text-[11px] font-medium text-[#1D4E89]" data-testid="search-pill">
@@ -45,6 +65,7 @@ export default function MessageBubble({ msg, streaming }) {
             <Markdown>{msg.content || ""}</Markdown>
             {streaming && !msg.content && !msg.searchStatus && <ThinkingDots />}
             {streaming && msg.content && <span className="jx-cursor" />}
+            {!streaming && msg.sources?.length > 0 && <Sources items={msg.sources} />}
           </div>
         )}
       </div>

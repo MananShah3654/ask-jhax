@@ -6,6 +6,7 @@ import ResearchingState from "@/components/ResearchingState";
 import ProfileSidebar from "@/components/ProfileSidebar";
 import ToolsPanel from "@/components/ToolsPanel";
 import ChatPanel from "@/components/ChatPanel";
+import DemoSheet from "@/components/DemoSheet";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { researchRestaurant, streamEndpoint } from "@/lib/api";
 
@@ -27,6 +28,15 @@ export default function CoPilot() {
 
   const handleTool = useCallback((evt) => {
     setMessages((prev) => prev.map((m) => (m.id === "streaming" ? { ...m, searchStatus: evt.query || "the web" } : m)));
+  }, []);
+
+  const handleSources = useCallback((items) => {
+    setMessages((prev) => prev.map((m) => {
+      if (m.id !== "streaming") return m;
+      const byUrl = new Map((m.sources || []).map((s) => [s.url, s]));
+      items.forEach((s) => { if (s && s.url) byUrl.set(s.url, s); });
+      return { ...m, sources: Array.from(byUrl.values()) };
+    }));
   }, []);
 
   const finalize = useCallback(() => {
@@ -71,9 +81,9 @@ export default function CoPilot() {
       `/restaurants/${restaurant.id}/chat/stream`, { message: text },
       appendDelta, finalize,
       (err) => { toast.error("Message failed"); finalize(); },
-      handleTool
+      handleTool, handleSources
     );
-  }, [restaurant, streaming, appendDelta, finalize, handleTool]);
+  }, [restaurant, streaming, appendDelta, finalize, handleTool, handleSources]);
 
   const handleReset = () => {
     setView("landing");
@@ -132,6 +142,8 @@ export default function CoPilot() {
           {showTools ? <PanelRightClose size={16} /> : <PanelRightOpen size={16} />}
           Tools
         </button>
+
+        <DemoSheet onSend={handleSend} disabled={streaming} />
 
         {/* mobile tools trigger */}
         <div className="lg:hidden">
