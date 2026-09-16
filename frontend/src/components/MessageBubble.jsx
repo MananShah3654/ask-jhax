@@ -1,6 +1,13 @@
 import { motion } from "framer-motion";
-import { ChefHat, Sparkles } from "lucide-react";
+import { ChefHat, Sparkles, Globe } from "lucide-react";
 import { Markdown } from "@/components/Markdown";
+
+const SearchPill = ({ query, active }) => (
+  <div className="inline-flex items-center gap-1.5 mb-2 px-2.5 py-1 rounded-full bg-[#EAF2FB] border border-[#CFE0F2] text-[11px] font-medium text-[#1D4E89]" data-testid="search-pill">
+    <Globe size={12} className={active ? "jx-pulse-dot" : ""} />
+    {active ? "Searching the web" : "Searched the web"}{query ? ` · ${query}` : ""}
+  </div>
+);
 
 export default function MessageBubble({ msg, streaming }) {
   const isUser = msg.role === "user";
@@ -34,8 +41,9 @@ export default function MessageBubble({ msg, streaming }) {
           </div>
         ) : (
           <div className="pt-1">
+            {msg.searchStatus && <SearchPill query={msg.searchStatus} active={streaming && !msg.content} />}
             <Markdown>{msg.content || ""}</Markdown>
-            {streaming && !msg.content && <ThinkingDots />}
+            {streaming && !msg.content && !msg.searchStatus && <ThinkingDots />}
             {streaming && msg.content && <span className="jx-cursor" />}
           </div>
         )}

@@ -13,7 +13,7 @@ import uuid
 from datetime import datetime, timezone
 
 from emergentintegrations.llm.chat import (
-    LlmChat, UserMessage, TextDelta, ToolCallReady, StreamDone,
+    LlmChat, UserMessage, TextDelta, ToolCallStart, ToolCallReady, StreamDone,
 )
 
 ROOT_DIR = Path(__file__).parent
@@ -174,7 +174,7 @@ async def run_full(chat: LlmChat, text: str) -> str:
 
 
 async def stream_deltas(chat: LlmChat, text: str):
-    """Async generator yielding text chunks."""
+    """Async generator yielding text chunks (no tool handling)."""
     user_msg = UserMessage(text=text)
     while True:
         pending = []
@@ -189,6 +189,72 @@ async def stream_deltas(chat: LlmChat, text: str):
             break
         for tc in pending:
             chat.add_tool_result(tc.id, json.dumps({}))
+        user_msg = None
+
+
+WEB_SEARCH_TOOL = [{
+    "type": "function",
+    "function": {
+        "name": "web_search",
+        "description": (
+            "Search the live web (Google) for current, specific, real-world facts. "
+            "Use this whenever the owner asks about competitors, nearby restaurants, current "
+            "reviews or ratings, menu prices, local events, foot-traffic, or anything that "
+            "should be up-to-date and verifiable. Prefer real named businesses and concrete "
+            "numbers over generic guesses."
+        ),
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "query": {"type": "string", "description": "A focused web search query, e.g. 'restaurants similar to Knowlwood Irvine yelp'"},
+            },
+            "required": ["query"],
+        },
+    },
+}]
+
+
+async def do_web_search(query: str) -> str:
+    sys = (
+        "You are a live web search tool. Use Google Search to find current, specific, real facts. "
+        "Return a concise factual summary with concrete named businesses, numbers, ratings and "
+        "sources where possible. If asked for competitors or nearby places, list the real business "
+        "names you actually find."
+    )
+    chat = build_search_chat(sys)
+    return await run_full(chat, query)
+
+
+async def stream_chat_events(chat: LlmChat, text: str):
+    """Yields dict events: {'type':'delta',...} and {'type':'tool',...}. Dispatches web_search."""
+    user_msg = UserMessage(text=text)
+    while True:
+        pending = []
+        async for ev in chat.stream_message(user_msg):
+            if isinstance(ev, TextDelta):
+                yield {"type": "delta", "content": ev.content}
+            elif isinstance(ev, ToolCallReady):
+                pending.append(ev.tool_call)
+            elif isinstance(ev, StreamDone):
+                break
+        if not pending:
+            break
+        for tc in pending:
+            try:
+                args = tc.arguments if isinstance(tc.arguments, dict) else json.loads(tc.arguments or "{}")
+            except Exception:
+                args = {}
+            if tc.name == "web_search":
+                q = args.get("query", "")
+                yield {"type": "tool", "name": "web_search", "query": q}
+                try:
+                    result = await do_web_search(q)
+                except Exception as e:
+                    logger.error(f"web_search failed: {e}")
+                    result = "Search unavailable right now."
+                chat.add_tool_result(tc.id, json.dumps({"query": q, "results": result}))
+            else:
+                chat.add_tool_result(tc.id, json.dumps({}))
         user_msg = None
 
 
@@ -217,7 +283,7 @@ Restaurant name: {name}
 Location: {location}
 Cuisine hint: {cuisine}
 
-Search the web for: the restaurant's actual menu & prices, its cuisine and positioning, its Google/Yelp rating and recurring review themes, 2-3 REAL nearby direct competitors, and any real local events / seasonal moments / trends in the next 1-4 weeks that could affect it.
+Search the web for: the restaurant's actual menu & prices, its cuisine and positioning, its Google/Yelp rating and recurring review themes, 4-6 REAL nearby direct competitors (pull them from actual Google Maps / Yelp "similar to" or "people also viewed" listings for THIS restaurant, using real business names), and any real local events / seasonal moments / trends in the next 1-4 weeks that could affect it.
 
 Return this exact JSON shape:
 {{
@@ -241,7 +307,7 @@ Return this exact JSON shape:
   "data_confidence": "high | medium | low — and one line on what's thin or missing"
 }}
 
-Rules: If you cannot find real data for a field, use your best industry-informed estimate but keep data_confidence honest. Never leave arrays empty — provide at least 2 competitors, 3 review_themes, 2 local_context items. Only output the JSON object."""
+Rules: If you cannot find real data for a field, use your best industry-informed estimate but keep data_confidence honest. Never leave arrays empty — provide at least 4 competitors (real named businesses), 3 review_themes, 2 local_context items. Only output the JSON object."""
 
 
 # ---------------------------------------------------------------------------
@@ -374,6 +440,7 @@ async def chat_stream(rid: str, req: ChatRequest):
 
     system = (
         JHAX_SYSTEM_PROMPT
+        + "\n\n## LIVE WEB SEARCH\nYou have a `web_search` tool backed by live Google Search. Call it whenever the owner asks about competitors, nearby restaurants, current reviews/ratings, prices, or local events — anything that should be current and verified. Prefer real, specific, named results from search over generic guesses, and briefly note when you're drawing on fresh search findings."
         + "\n\n## RESTAURANT DATA (already known)\n" + restaurant_context_block(doc)
         + ("\n\n## CONVERSATION SO FAR\n" + convo if convo.strip() else "")
     )
@@ -381,10 +448,13 @@ async def chat_stream(rid: str, req: ChatRequest):
     async def gen():
         acc = []
         try:
-            chat = build_chat(system, search_ctx="low")
-            async for chunk in stream_deltas(chat, req.message):
-                acc.append(chunk)
-                yield sse({"type": "delta", "content": chunk})
+            chat = build_chat(system).with_tools(WEB_SEARCH_TOOL, tool_choice="auto").with_params(reasoning_effort="none")
+            async for evt in stream_chat_events(chat, req.message):
+                if evt["type"] == "delta":
+                    acc.append(evt["content"])
+                    yield sse({"type": "delta", "content": evt["content"]})
+                elif evt["type"] == "tool":
+                    yield sse({"type": "tool", "name": evt.get("name"), "query": evt.get("query")})
         except Exception as e:
             logger.error(f"chat stream error: {e}")
             yield sse({"type": "error", "content": "Something went wrong. Try again."})

@@ -18,7 +18,7 @@ export const deleteRestaurant = async (rid) => {
 };
 
 // Streams SSE from an endpoint, calling onDelta(text) per chunk, onDone() at end.
-export const streamEndpoint = async (path, body, onDelta, onDone, onError) => {
+export const streamEndpoint = async (path, body, onDelta, onDone, onError, onTool) => {
   try {
     const resp = await fetch(`${API}${path}`, {
       method: "POST",
@@ -43,6 +43,7 @@ export const streamEndpoint = async (path, body, onDelta, onDone, onError) => {
         try {
           const evt = JSON.parse(json);
           if (evt.type === "delta") onDelta(evt.content);
+          else if (evt.type === "tool") onTool && onTool(evt);
           else if (evt.type === "error") onError && onError(evt.content);
           else if (evt.type === "done") onDone && onDone();
         } catch (_) { /* ignore partial */ }

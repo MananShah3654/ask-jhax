@@ -25,6 +25,10 @@ export default function CoPilot() {
     setMessages((prev) => prev.map((m) => (m.id === "streaming" ? { ...m, content: m.content + chunk } : m)));
   }, []);
 
+  const handleTool = useCallback((evt) => {
+    setMessages((prev) => prev.map((m) => (m.id === "streaming" ? { ...m, searchStatus: evt.query || "the web" } : m)));
+  }, []);
+
   const finalize = useCallback(() => {
     setMessages((prev) => prev.map((m) => (m.id === "streaming" ? { ...m, id: newId() } : m)));
     setStreaming(false);
@@ -66,9 +70,10 @@ export default function CoPilot() {
     streamEndpoint(
       `/restaurants/${restaurant.id}/chat/stream`, { message: text },
       appendDelta, finalize,
-      (err) => { toast.error("Message failed"); finalize(); }
+      (err) => { toast.error("Message failed"); finalize(); },
+      handleTool
     );
-  }, [restaurant, streaming, appendDelta, finalize]);
+  }, [restaurant, streaming, appendDelta, finalize, handleTool]);
 
   const handleReset = () => {
     setView("landing");
