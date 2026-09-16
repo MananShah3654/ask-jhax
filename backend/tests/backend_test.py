@@ -148,30 +148,69 @@ def _existing_or_new_rid():
     return None
 
 
-def test_chat_stream_triggers_web_search_no_error():
-    """BUG FIX 1: factual question must not throw reasoning_effort error;
-    should emit at least one tool event and produce a real answer."""
+REFUSAL_PHRASES = [
+    "don't have",
+    "do not have",
+    "not in the loaded data",
+    "won't guess",
+    "will not guess",
+]
+
+
+def _assert_no_refusal(content: str, msg: str):
+    low = content.lower()
+    hits = [p for p in REFUSAL_PHRASES if p in low]
+    assert not hits, f"[{msg}] refusal phrases found {hits} in: {content[:400]}"
+
+
+@pytest.mark.parametrize("question,label", [
+    ("what my business hours", "hours"),
+    ("whats my address and phone", "address_phone"),
+    ("how am I rated", "rating"),
+])
+def test_chat_stream_terse_factuals_trigger_web_search(question, label):
+    """BUG FIX (v3): terse factual asks about the restaurant's OWN details must
+    trigger web_search BEFORE any refusal, and return real facts."""
     rid = _existing_or_new_rid()
     if not rid:
         pytest.skip("no existing restaurant to reuse")
 
     with requests.post(f"{API}/restaurants/{rid}/chat/stream",
-                       json={"message": "What are my business hours? Please look them up."},
+                       json={"message": question},
+                       stream=True, timeout=240) as resp:
+        assert resp.status_code == 200
+        events = read_sse(resp, max_events=3000)
+
+    types = [e["type"] for e in events]
+    assert "error" not in types, f"[{label}] error events: {[e for e in events if e['type']=='error']}"
+    assert types and types[-1] == "done", f"[{label}] did not end with done: {types[-5:]}"
+    tool_evs = [e for e in events if e["type"] == "tool"]
+    assert any(e.get("name") == "web_search" for e in tool_evs), \
+        f"[{label}] no web_search tool event; got {tool_evs}"
+
+    content = "".join(e.get("content", "") for e in events if e["type"] == "delta")
+    assert len(content) > 60, f"[{label}] content too short: {content!r}"
+    _assert_no_refusal(content, label)
+
+
+def test_chat_stream_creative_ask_no_error():
+    """Regression: creative ask streams a normal answer, no error events.
+    web_search may or may not be called — both acceptable."""
+    rid = _existing_or_new_rid()
+    if not rid:
+        pytest.skip("no existing restaurant to reuse")
+
+    with requests.post(f"{API}/restaurants/{rid}/chat/stream",
+                       json={"message": "draft me a short instagram caption for tonight"},
                        stream=True, timeout=180) as resp:
         assert resp.status_code == 200
         events = read_sse(resp, max_events=2000)
 
     types = [e["type"] for e in events]
-    assert "error" not in types, f"got error events: {[e for e in events if e['type']=='error']}"
-    assert "tool" in types, f"expected a tool event; got types {set(types)}"
-    tool_evs = [e for e in events if e["type"] == "tool"]
-    assert any(e.get("name") == "web_search" for e in tool_evs)
+    assert "error" not in types, f"error events: {[e for e in events if e['type']=='error']}"
     assert types[-1] == "done"
-
     content = "".join(e.get("content", "") for e in events if e["type"] == "delta")
-    assert len(content) > 100
-    low = content.lower()
-    assert "i don't have verified business hours" not in low, "assistant still refused"
+    assert len(content) > 20, f"creative content too short: {content!r}"
 
 
 def test_chat_stream_competitors_depth():

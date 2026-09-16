@@ -1,0 +1,18 @@
+{
+  "summary": "Verified BUG FIX v3 (jhax must call web_search BEFORE refusing on factual asks about the restaurant's own details). Extended backend_test.py with a parametrized test covering the three terse phrasings from the request ('what my business hours', 'whats my address and phone', 'how am I rated') and a creative-ask regression ('draft me a short instagram caption for tonight'). All 14/14 pytest cases pass in 81s. For each terse factual phrasing, the /api/restaurants/{id}/chat/stream SSE stream: (a) emits at least one {type:tool,name:web_search} event, (b) has zero error events, (c) ends with a 'done' event, (d) produces >60 chars of real content, and (e) contains none of the refusal phrases ('don't have', 'do not have', 'not in the loaded data', 'won't guess', 'will not guess'). Competitor-depth regression (web_search + real named businesses) and snapshot-stream persistence with is_snapshot=true also still green. Chat continuity (canary 4271) confirms both user + assistant messages persist. Creative caption ask streamed a normal answer with no error events.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {"ui_bugs": [], "integration_issues": [], "design_issues": []},
+  "test_report_links": ["/app/backend/tests/backend_test.py", "/app/test_reports/pytest/pytest_results.xml"],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "Refusal-phrase blacklist in the test is intentionally narrow (5 phrases). If the model finds new ways to refuse (e.g. 'unable to confirm', 'no reliable source'), tests will still pass. Consider periodically expanding the blacklist as new refusal patterns are observed in prod chat logs.",
+    "build_chat/build_search_chat still accept an unused search_ctx param (carried over from iter 1/2) — safe to drop.",
+    "streamEndpoint (frontend) still calls onDone twice on happy path — carried over, minor."
+  ],
+  "updated_files": ["/app/backend/tests/backend_test.py"],
+  "success_rate": {"backend": "100% (14/14)", "frontend": "n/a (skipped per request)"},
+  "seed_data_creation": "TEST_Smoked Barrel created + deleted within test session; terse-factual + creative + competitor tests reuse an existing restaurant from GET /api/restaurants.",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Live web_search turns take 20-30s each; the parametrized 3-case terse-factual test alone needs ~60-90s. Keep timeout>=180s per stream. SSE event types are delta/tool/error/done. Tool event carries {name:'web_search', query:'...'}. When adding new refusal patterns, update REFUSAL_PHRASES list in backend_test.py."
+}
