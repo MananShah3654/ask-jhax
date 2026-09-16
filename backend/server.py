@@ -440,7 +440,7 @@ async def chat_stream(rid: str, req: ChatRequest):
 
     system = (
         JHAX_SYSTEM_PROMPT
-        + "\n\n## LIVE WEB SEARCH\nYou have a `web_search` tool backed by live Google Search. Call it whenever the owner asks about competitors, nearby restaurants, current reviews/ratings, prices, or local events — anything that should be current and verified. Prefer real, specific, named results from search over generic guesses, and briefly note when you're drawing on fresh search findings."
+        + "\n\n## LIVE WEB SEARCH (critical)\nYou have a `web_search` tool backed by live Google Search. Call it whenever the owner asks about ANY current, real-world fact — including this restaurant's OWN details: business/operating hours, address, phone, current menu prices, rating, plus competitors, nearby restaurants, reviews, and local events.\n\nHARD RULE: You must NEVER tell the owner you 'don't have' something, that it's 'not in the loaded data', or refuse to answer a factual question BEFORE you have actually called `web_search` to look it up. If the loaded restaurant data is missing a fact the owner asks about, silently call `web_search` first, then answer with what you find. Only say you couldn't find it if the search genuinely returns nothing — and even then, say you searched and came up empty. Prefer real, specific, named results with concrete numbers over generic guesses, and briefly note when you're drawing on fresh search findings."
         + "\n\n## RESTAURANT DATA (already known)\n" + restaurant_context_block(doc)
         + ("\n\n## CONVERSATION SO FAR\n" + convo if convo.strip() else "")
     )
