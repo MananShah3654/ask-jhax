@@ -18,6 +18,18 @@ jhax reasons like a commercially savvy hospitality operator: direct, data-driven
 
 ---
 
+## 🧩 `ai_core/` — reusable multi-agent toolkit
+
+The repo also ships a **standalone, portable package at [`/ai_core`](./ai_core)** — an
+AI-COO orchestrator with a **360° roster of 16 restaurant specialist agents**, plus
+**memory, RAG, semantic cache, an eval harness, and a FastAPI SSE server**. It is
+**not wired into the live jhax app** (which uses the simpler single-brain + web_search
+design); it's a drop-in kit for building a full multi-agent system in this or another app.
+
+See **[`ai_core/README.md`](./ai_core/README.md)** for the 10-step integration procedure.
+
+---
+
 ## 🤖 Models — which & where
 
 | Job | Model | Where in code (`backend/server.py`) |
