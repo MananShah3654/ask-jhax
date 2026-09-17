@@ -47,7 +47,52 @@ async def on_event(e):  # {t:'plan'|'agent_start'|'agent_done'|'tool'|'delta'|'c
 answer = await coo.handle(user_msg, user_id=uid, history=history, on_event=on_event)
 ```
 
-## Files
+## FastAPI SSE server (plug into any UI)
+
+`ai_core/api.py` gives you a ready streaming endpoint.
+
+**Mount on your existing app:**
+```python
+from ai_core.api import build_router
+app.include_router(build_router(web_search=my_search, mongo_db=db,
+                                rag_namespace=f"restaurant:{rid}"), prefix="/api")
+```
+
+**Or run standalone:**
+```python
+from ai_core.api import create_app
+app = create_app(web_search=my_search)      # uvicorn ai_core.api:app --port 8080
+```
+
+**Endpoints**
+- `GET  /api/coo/health` → `{status, agents:[...]}`
+- `POST /api/coo/chat/stream` body `{message, user_id, session_id}` → SSE stream
+
+**SSE events:** `{t:'cache_hit'}` · `{t:'plan',agents}` · `{t:'agent_start',name}` · `{t:'tool',name,args}` · `{t:'agent_done',name}` · `{t:'delta',c}` · `{t:'error',message}` · `{t:'done'}`
+
+**Browser client (vanilla JS):**
+```js
+const resp = await fetch(`${API}/api/coo/chat/stream`, {
+  method: "POST", headers: { "Content-Type": "application/json" },
+  body: JSON.stringify({ message, user_id: "u1", session_id: "s1" }),
+});
+const reader = resp.body.getReader(); const dec = new TextDecoder(); let buf = "";
+while (true) {
+  const { done, value } = await reader.read(); if (done) break;
+  buf += dec.decode(value, { stream: true });
+  const parts = buf.split("\n\n"); buf = parts.pop();
+  for (const p of parts) {
+    if (!p.startsWith("data:")) continue;
+    const e = JSON.parse(p.slice(5).trim());
+    if (e.t === "delta") appendToBubble(e.c);
+    else if (e.t === "agent_start") showStatus(`🔎 ${e.name} working…`);
+    else if (e.t === "plan") console.log("agents:", e.agents);
+    else if (e.t === "done") finish();
+  }
+}
+```
+
+
 
 | File | What |
 |------|------|
@@ -60,6 +105,9 @@ answer = await coo.handle(user_msg, user_id=uid, history=history, on_event=on_ev
 | `cache.py` | **semantic cache** with similarity threshold + TTL |
 | `agents.py` | `Agent` dataclass (role prompt + tools) + reusable tool schemas |
 | `orchestrator.py` | **COO**: cache → memory/RAG context → plan → parallel fan-out → synthesize |
+| `rosters.py` | **360° restaurant-COO roster** — 16 specialist agents (data-defined) |
+| `tools.py` | reusable tool schemas + deterministic calculators (prime cost, food cost, break-even) |
+| `api.py` | **FastAPI SSE server** — `build_router()` / `create_app()` streaming endpoint |
 | `evals/runner.py` | hard-rule checks + **LLM-as-judge**; returns `pass_rate` for CI gating |
 | `evals/cases.jsonl` | sample eval cases |
 | `example.py` | runnable end-to-end demo |

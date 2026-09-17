@@ -52,8 +52,6 @@ class OpenAIEmbedder(Embedder):
 
 
 def default_embedder() -> Embedder:
-    """Try real embeddings; fall back to the dev embedder so nothing crashes."""
-    try:
-        return OpenAIEmbedder()
-    except Exception:
-        return DevHashEmbedder()
+    """Safe default = offline dev embedder (runs anywhere, no network).
+    For real semantic quality, construct and pass OpenAIEmbedder() explicitly."""
+    return DevHashEmbedder()
