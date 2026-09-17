@@ -14,5 +14,6 @@ from .orchestrator import COO
 from .memory import Memory
 from .rag import RAG
 from .cache import SemanticCache
+from .rosters import restaurant_coo_roster
 
-__all__ = ["Config", "Agent", "COO", "Memory", "RAG", "SemanticCache"]
+__all__ = ["Config", "Agent", "COO", "Memory", "RAG", "SemanticCache", "restaurant_coo_roster"]
