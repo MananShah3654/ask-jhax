@@ -15,3 +15,7 @@ emergentintegrations      # Universal Key path
 # --- optional, by file type for ingestion ---
 pypdf                     # ingest PDF files
 openpyxl                  # ingest .xlsx files
+
+# --- exact calculations / spreadsheet analysis (code_exec) ---
+pandas
+numpy

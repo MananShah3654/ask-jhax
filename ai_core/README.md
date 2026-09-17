@@ -250,7 +250,8 @@ while (true) {
 | `tools.py` | reusable tool schemas + deterministic calculators (prime cost, food cost, break-even) |
 | `api.py` | **FastAPI SSE server** — `build_router()` / `create_app()`; chat + file-upload endpoints |
 | `search.py` | **default live web search** (Gemini + Google Search, like jhax) |
-| `ingest.py` | **file → text → RAG** (PDF, CSV, XLSX, images via Gemini vision) |
+| `ingest.py` | **file → text → RAG** (PDF, CSV, XLSX, images; Gemini OCR fallback for scanned PDFs) |
+| `code_exec.py` | **sandboxed Python tool** for exact math & spreadsheet analysis (Code-Interpreter-style) |
 | `evals/runner.py` | hard-rule checks + **LLM-as-judge**; returns `pass_rate` for CI gating |
 | `evals/cases.jsonl` | sample eval cases |
 | `example.py` | runnable end-to-end demo |

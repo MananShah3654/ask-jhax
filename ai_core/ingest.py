@@ -11,6 +11,7 @@ Supported out of the box:
 
 Deps (only what you use): `pip install pypdf openpyxl`
 """
+import asyncio
 import csv
 import io
 import os
@@ -80,10 +81,31 @@ async def gemini_image_to_text(data: bytes, filename: str = "image.png") -> str:
     return await get_backend().vision(data, filename, prompt)
 
 
+def _pdf_vision_sync(data: bytes) -> str:
+    """OCR fallback for scanned PDFs via Gemini (reads the PDF natively)."""
+    from google import genai
+    from google.genai import types
+    client = genai.Client(api_key=Config.GEMINI_API_KEY)
+    resp = client.models.generate_content(
+        model=Config.SEARCH_MODEL,
+        contents=[types.Part.from_bytes(data=data, mime_type="application/pdf"),
+                  "Transcribe ALL text from this PDF verbatim. Render any tables as CSV."],
+    )
+    return resp.text or ""
+
+
 async def file_to_text(data: bytes, filename: str, image_extractor=None) -> str:
-    if _ext(filename) in IMAGE_EXTS:
+    ext = _ext(filename)
+    if ext in IMAGE_EXTS:
         extractor = image_extractor or gemini_image_to_text
         return await extractor(data, filename)
+    if ext == ".pdf":
+        try:
+            return extract_text(data, filename)
+        except RuntimeError:
+            if Config.GEMINI_API_KEY:                      # scanned PDF -> vision OCR
+                return await asyncio.to_thread(_pdf_vision_sync, data)
+            raise
     return extract_text(data, filename)
 
 

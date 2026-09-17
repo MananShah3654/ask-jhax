@@ -32,7 +32,8 @@ def _spec(role: str) -> str:
     return f"{_BASE}\n\nYOUR SPECIALTY: {role}"
 
 
-def restaurant_coo_roster(web_search=None, strong_model=None, extra: dict = None):
+def restaurant_coo_roster(web_search=None, strong_model=None, extra: dict = None,
+                          code_tools=None, code_impls=None):
     model = strong_model or Config.strong()
 
     if web_search is None:
@@ -140,6 +141,12 @@ def restaurant_coo_roster(web_search=None, strong_model=None, extra: dict = None
             "Crisis & PR response. Calm, fast, specific. Draft public statements when asked.",
             search_tools, search_impls),
     }
+
+    if code_tools and code_impls:
+        # give the number-heavy specialists exact Python compute
+        for n in ("finance_pnl", "pricing_menu", "purchasing_inventory", "operations", "labor_staffing"):
+            roster[n].tools = list(roster[n].tools) + list(code_tools)
+            roster[n].tool_impls = {**roster[n].tool_impls, **code_impls}
 
     if extra:
         roster.update(extra)

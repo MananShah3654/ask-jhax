@@ -89,19 +89,24 @@ def _wire(web_search=None, mongo_db=None, rag_namespace="global", roster=None):
         cache = SemanticCache(InMemoryVectorStore(emb))
         rag = RAG(InMemoryVectorStore(emb))
 
-    roster = roster or restaurant_coo_roster(web_search=web_search)
+    from .code_exec import CodeExec, code_exec_tool
+    executor = CodeExec()
+    code_schema, code_impls = code_exec_tool(executor)
+
+    roster = roster or restaurant_coo_roster(web_search=web_search,
+                                              code_tools=[code_schema], code_impls=code_impls)
     coo = COO(roster, memory=memory, cache=cache, rag=rag, rag_namespace=rag_namespace)
     history = _HistoryStore(mongo_db)
-    return coo, history, rag
+    return coo, history, rag, executor
 
 
 def build_router(web_search=None, mongo_db=None, rag_namespace="global", roster=None) -> APIRouter:
     router = APIRouter()
-    coo, history, rag = _wire(web_search, mongo_db, rag_namespace, roster)
+    coo, history, rag, executor = _wire(web_search, mongo_db, rag_namespace, roster)
 
     @router.get("/coo/health")
     async def health():
-        return {"status": "ok", "agents": list(coo.roster.keys())}
+        return {"status": "ok", "agents": list(coo.roster.keys()), "files": executor.files}
 
     @router.post("/coo/ingest")
     async def ingest(file: UploadFile = File(...),
@@ -109,6 +114,7 @@ def build_router(web_search=None, mongo_db=None, rag_namespace="global", roster=
                      source: str = Form(None)):
         from .ingest import ingest_file
         data = await file.read()
+        executor.add_file(file.filename, data)          # make it available to code_exec
         try:
             n = await ingest_file(rag, data, file.filename,
                                   namespace=namespace or rag_namespace, source=source)
