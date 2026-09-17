@@ -1,11 +1,17 @@
 # ai_core dependencies
-emergentintegrations
 fastapi
 uvicorn
 pydantic
 python-multipart          # file uploads
-motor                     # only if using Mongo stores
-# optional / by feature:
+motor                     # DB persistence (memory / cache / RAG)
+
+# --- backend: outside Emergent (default) ---
+openai>=1.40              # reasoning + embeddings + vision
+google-genai>=0.3         # live web search (Google Search grounding) + image ingest
+
+# --- backend: inside Emergent (alternative) ---
+emergentintegrations      # Universal Key path
+
+# --- optional, by file type for ingestion ---
 pypdf                     # ingest PDF files
 openpyxl                  # ingest .xlsx files
-openai                    # only if using OpenAIEmbedder (real embeddings)

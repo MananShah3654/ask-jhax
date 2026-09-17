@@ -65,15 +65,26 @@ class _HistoryStore:
             self._mem.setdefault(key, []).append({"role": role, "content": content})
 
 
+def _default_db():
+    """Build a Mongo DB handle from env so memory/cache/RAG persist by default."""
+    from .config import Config
+    if not Config.MONGO_URL:
+        return None
+    from motor.motor_asyncio import AsyncIOMotorClient
+    return AsyncIOMotorClient(Config.MONGO_URL)[Config.DB_NAME]
+
+
 def _wire(web_search=None, mongo_db=None, rag_namespace="global", roster=None):
-    """Build a COO + a history store, using Mongo if provided else in-memory."""
+    """Build a COO + history store. Persists to Mongo by default (from MONGO_URL)."""
+    if mongo_db is None:
+        mongo_db = _default_db()
+
+    emb = default_embedder()
     if mongo_db is not None:
-        emb = default_embedder()
         memory = Memory(MongoKV(mongo_db.coo_memory))
         cache = SemanticCache(MongoVectorStore(mongo_db.coo_cache, emb))
         rag = RAG(MongoVectorStore(mongo_db.coo_knowledge, emb))
     else:
-        emb = default_embedder()
         memory = Memory(InMemoryKV())
         cache = SemanticCache(InMemoryVectorStore(emb))
         rag = RAG(InMemoryVectorStore(emb))

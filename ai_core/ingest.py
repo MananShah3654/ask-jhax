@@ -11,15 +11,12 @@ Supported out of the box:
 
 Deps (only what you use): `pip install pypdf openpyxl`
 """
-import base64
 import csv
 import io
-import json
 import os
 
-from emergentintegrations.llm.chat import LlmChat, UserMessage, ImageContent, TextDelta, StreamDone
-
 from .config import Config
+from .backends import get_backend
 
 IMAGE_EXTS = {".png", ".jpg", ".jpeg", ".webp", ".gif", ".bmp"}
 TEXT_EXTS = {".txt", ".md", ".log", ".json", ".html", ".htm", ".xml", ".tsv", ".yaml", ".yml"}
@@ -77,23 +74,10 @@ def extract_text(data: bytes, filename: str) -> str:
 
 
 async def gemini_image_to_text(data: bytes, filename: str = "image.png") -> str:
-    """Use Gemini vision to transcribe/describe an image for the knowledge base."""
-    b64 = base64.b64encode(data).decode()
-    chat = LlmChat(
-        api_key=Config.KEY, session_id="ai_core_vision",
-        system_message=("Transcribe this image for a restaurant knowledge base. "
-                        "Extract ALL text verbatim (menu items, prices, hours, addresses), "
-                        "then add a one-line description of what it shows."),
-    ).with_model(*Config.SEARCH_MODEL)
-    msg = UserMessage(text="Extract everything useful from this image.",
-                      file_contents=[ImageContent(image_base64=b64)])
-    out = []
-    async for ev in chat.stream_message(msg):
-        if isinstance(ev, TextDelta):
-            out.append(ev.content)
-        elif isinstance(ev, StreamDone):
-            break
-    return "".join(out)
+    """Transcribe/describe an image for the knowledge base (via the active backend's vision)."""
+    prompt = ("Transcribe this image for a restaurant knowledge base. Extract ALL text verbatim "
+              "(menu items, prices, hours, addresses), then add a one-line description.")
+    return await get_backend().vision(data, filename, prompt)
 
 
 async def file_to_text(data: bytes, filename: str, image_extractor=None) -> str:

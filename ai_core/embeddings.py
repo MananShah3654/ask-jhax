@@ -1,10 +1,11 @@
 """
 Embeddings with a pluggable interface.
 
-- `OpenAIEmbedder`  : real embeddings (use in production; needs OPENAI_API_KEY
-                      or an OpenAI-compatible endpoint).
-- `DevHashEmbedder` : deterministic char n-gram hashing — NO network. Good enough
-                      to make cache/RAG demos run locally; replace for real quality.
+- `OpenAIEmbedder`  : real embeddings (production). Uses OPENAI_API_KEY.
+- `DevHashEmbedder` : deterministic char n-gram hashing — NO network. Dev only.
+
+`default_embedder()` returns OpenAIEmbedder when an OpenAI key is present, else the
+dev embedder — so cache/RAG get real quality automatically outside Emergent.
 """
 import hashlib
 import math
@@ -19,8 +20,6 @@ class Embedder:
 
 
 class DevHashEmbedder(Embedder):
-    """Dev-only. Hashes char 3-grams into a fixed-dim L2-normalized vector."""
-
     def __init__(self, dim: int = None):
         self.dim = dim or Config.EMBED_DIM_DEV
 
@@ -39,12 +38,10 @@ class DevHashEmbedder(Embedder):
 
 
 class OpenAIEmbedder(Embedder):
-    """Real embeddings via the openai SDK. `pip install openai`."""
-
     def __init__(self, model: str = None, api_key: str = None, base_url: str = None):
         from openai import AsyncOpenAI
         self.model = model or Config.EMBED_MODEL
-        self.client = AsyncOpenAI(api_key=api_key or Config.KEY, base_url=base_url)
+        self.client = AsyncOpenAI(api_key=api_key or Config.OPENAI_API_KEY, base_url=base_url)
 
     async def embed(self, texts):
         resp = await self.client.embeddings.create(model=self.model, input=texts)
@@ -52,6 +49,9 @@ class OpenAIEmbedder(Embedder):
 
 
 def default_embedder() -> Embedder:
-    """Safe default = offline dev embedder (runs anywhere, no network).
-    For real semantic quality, construct and pass OpenAIEmbedder() explicitly."""
+    if Config.OPENAI_API_KEY:
+        try:
+            return OpenAIEmbedder()
+        except Exception:
+            pass
     return DevHashEmbedder()

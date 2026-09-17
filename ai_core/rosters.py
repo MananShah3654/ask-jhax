@@ -33,7 +33,7 @@ def _spec(role: str) -> str:
 
 
 def restaurant_coo_roster(web_search=None, strong_model=None, extra: dict = None):
-    model = strong_model or Config.STRONG_MODEL
+    model = strong_model or Config.strong()
 
     if web_search is None:
         from .search import gemini_web_search  # default: live Gemini Google Search (like jhax)

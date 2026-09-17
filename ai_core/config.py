@@ -2,22 +2,36 @@ import os
 
 
 class Config:
-    """Central config. Override via env vars in your other app."""
+    """
+    Central config. Works OUTSIDE Emergent with your own provider keys (default),
+    or inside Emergent with the Universal Key as a fallback.
 
-    # Auth: Emergent Universal Key OR a raw provider key
-    KEY = os.environ.get("EMERGENT_LLM_KEY") or os.environ.get("OPENAI_API_KEY", "")
+    Backend auto-detect (override with AI_CORE_BACKEND=openai|emergent):
+      - OPENAI_API_KEY present  -> "openai"  (official OpenAI/Gemini SDKs)
+      - else EMERGENT_LLM_KEY    -> "emergent"
+    """
+    # ---- provider keys (outside Emergent) ----
+    OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY", "")
+    GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY") or os.environ.get("GOOGLE_API_KEY", "")
+    ANTHROPIC_API_KEY = os.environ.get("ANTHROPIC_API_KEY", "")
+    # ---- Emergent Universal Key (inside Emergent) ----
+    EMERGENT_LLM_KEY = os.environ.get("EMERGENT_LLM_KEY", "")
 
-    # (provider, model) tuples — cheap model for routing/summaries/judge,
-    # strong model for owner-facing answers, search model for grounded lookups.
-    STRONG_MODEL = ("openai", "gpt-5.6-terra")
-    CHEAP_MODEL = ("openai", "gpt-5.4-mini")
-    SEARCH_MODEL = ("gemini", "gemini-2.5-flash")
+    FORCE_BACKEND = os.environ.get("AI_CORE_BACKEND", "")
 
-    # Embeddings
+    # ---- database (memory / cache / rag persist here) ----
+    MONGO_URL = os.environ.get("MONGO_URL", "")
+    DB_NAME = os.environ.get("DB_NAME", "ai_core")
+
+    # ---- embeddings ----
     EMBED_MODEL = os.environ.get("EMBED_MODEL", "text-embedding-3-small")
-    EMBED_DIM_DEV = int(os.environ.get("EMBED_DIM_DEV", "384"))  # dev hash embedder dim
+    EMBED_DIM_DEV = int(os.environ.get("EMBED_DIM_DEV", "384"))
 
-    # Thresholds / knobs
+    # ---- search / vision model (Gemini) ----
+    SEARCH_MODEL = os.environ.get("SEARCH_MODEL", "gemini-2.5-flash")
+    VISION_MODEL = os.environ.get("VISION_MODEL", "")  # blank -> backend default
+
+    # ---- knobs ----
     CACHE_THRESHOLD = float(os.environ.get("CACHE_THRESHOLD", "0.92"))
     CACHE_TTL_SECONDS = int(os.environ.get("CACHE_TTL_SECONDS", str(60 * 60 * 24)))
     RAG_TOP_K = int(os.environ.get("RAG_TOP_K", "4"))
@@ -27,3 +41,31 @@ class Config:
     AGENT_TIMEOUT_S = int(os.environ.get("AGENT_TIMEOUT_S", "60"))
     MAX_PARALLEL_AGENTS = int(os.environ.get("MAX_PARALLEL_AGENTS", "4"))
     HISTORY_VERBATIM_TURNS = int(os.environ.get("HISTORY_VERBATIM_TURNS", "8"))
+
+    @classmethod
+    def backend(cls) -> str:
+        if cls.FORCE_BACKEND:
+            return cls.FORCE_BACKEND
+        if cls.OPENAI_API_KEY:
+            return "openai"
+        if cls.EMERGENT_LLM_KEY:
+            return "emergent"
+        return "openai"
+
+    @classmethod
+    def strong(cls) -> str:
+        """Owner-facing answer model."""
+        return os.environ.get("STRONG_MODEL") or (
+            "gpt-4o" if cls.backend() == "openai" else "gpt-5.6-terra")
+
+    @classmethod
+    def cheap(cls) -> str:
+        """Routing / summaries / judge model."""
+        return os.environ.get("CHEAP_MODEL") or (
+            "gpt-4o-mini" if cls.backend() == "openai" else "gpt-5.4-mini")
+
+    @classmethod
+    def vision(cls) -> str:
+        if cls.VISION_MODEL:
+            return cls.VISION_MODEL
+        return "gpt-4o-mini" if cls.backend() == "openai" else "gemini-2.5-flash"

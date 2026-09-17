@@ -47,6 +47,38 @@ async def on_event(e):  # {t:'plan'|'agent_start'|'agent_done'|'tool'|'delta'|'c
 answer = await coo.handle(user_msg, user_id=uid, history=history, on_event=on_event)
 ```
 
+## 🔑 LLM keys & backends (read first)
+
+`ai_core` runs in **two modes**, auto-detected (override with `AI_CORE_BACKEND=openai|emergent`):
+
+| Mode | When | Keys | Models used |
+|------|------|------|-------------|
+| **`openai`** (default outside Emergent) | you host the app yourself | `OPENAI_API_KEY` (+ `GEMINI_API_KEY` for live search/vision) | real OpenAI + Gemini model names |
+| **`emergent`** | app runs on Emergent | `EMERGENT_LLM_KEY` | Emergent aliases (`gpt-5.6-terra`…) |
+
+**Which key does what** (each part of `ai_core`):
+
+| Component | Model (env var) | Key |
+|---|---|---|
+| COO reasoning / synthesis | `STRONG_MODEL` (default `gpt-4o`) | `OPENAI_API_KEY` |
+| Router / summaries / eval judge | `CHEAP_MODEL` (default `gpt-4o-mini`) | `OPENAI_API_KEY` |
+| Live web search | `SEARCH_MODEL` (default `gemini-2.5-flash`) | `GEMINI_API_KEY` |
+| Image / scanned-file ingest | `VISION_MODEL` (default `gpt-4o-mini`) | `OPENAI_API_KEY` |
+| Embeddings (cache + RAG) | `EMBED_MODEL` (`text-embedding-3-small`) | `OPENAI_API_KEY` |
+
+> ⚠️ "GPT 5.6" is an **Emergent alias** — it does not exist on the raw OpenAI API.
+> Outside Emergent, set `STRONG_MODEL`/`CHEAP_MODEL` to real OpenAI names (e.g. `gpt-4o`, `gpt-4.1`, `gpt-4o-mini`) or set an agent's `model="claude-..."` if you add an Anthropic path.
+
+**Recommendation:**
+- **Outside Emergent (your case):** `OPENAI_API_KEY` (reasoning + embeddings + vision) **+** `GEMINI_API_KEY` (live search). One OpenAI key covers most of it; Gemini is only for grounded search/vision.
+- **On Emergent:** just `EMERGENT_LLM_KEY` for reasoning + search + vision, **plus** one `OPENAI_API_KEY` for embeddings (the Universal Key does not serve embeddings).
+
+**Memory / cache / RAG persist to your DB automatically** — set `MONGO_URL` (+ `DB_NAME`)
+and the API stores everything in Mongo collections `coo_memory`, `coo_cache`,
+`coo_knowledge`, `coo_messages`. No `MONGO_URL` → falls back to in-memory (dev only).
+
+---
+
 ## Integration Procedure (follow in order)
 
 **Step 1 — Copy the package**
@@ -64,13 +96,19 @@ pip install fastapi uvicorn pydantic motor emergentintegrations
 pip install openai
 ```
 
-**Step 3 — Set environment variables**
+**Step 3 — Set environment variables** (outside Emergent)
 ```bash
-export EMERGENT_LLM_KEY=sk-emergent-...     # or OPENAI_API_KEY for raw OpenAI
-# optional overrides:
-export CACHE_THRESHOLD=0.92
-export RAG_TOP_K=4
+export OPENAI_API_KEY=sk-...            # reasoning + embeddings + vision
+export GEMINI_API_KEY=...               # live web search + image ingest (Google AI Studio)
+export MONGO_URL=mongodb://localhost:27017   # memory/cache/RAG persist here
+export DB_NAME=ai_core
+# optional model overrides (real OpenAI names!):
+export STRONG_MODEL=gpt-4o
+export CHEAP_MODEL=gpt-4o-mini
+# optional knobs: CACHE_THRESHOLD, RAG_TOP_K, MAX_PARALLEL_AGENTS ...
 ```
+Running ON Emergent instead? Just `export EMERGENT_LLM_KEY=sk-emergent-...`
+(+ an `OPENAI_API_KEY` for embeddings).
 
 **Step 4 — Live web search is ON by default**
 The roster and API use **Gemini + Google Search** out of the box (same as jhax) — no
@@ -81,19 +119,24 @@ async def my_search(query: str) -> dict:
 roster = restaurant_coo_roster(web_search=my_search)
 ```
 
-**Step 5 — Wire the COO** (choose in-memory for dev, Mongo for prod)
+**Step 5 — Wire the COO** (memory/cache/RAG persist to Mongo automatically)
 ```python
-from ai_core import COO, Memory, RAG, SemanticCache, restaurant_coo_roster
-from ai_core.stores import MongoKV, MongoVectorStore
-from ai_core.embeddings import OpenAIEmbedder          # or DevHashEmbedder for dev
+from ai_core import COO, restaurant_coo_roster
+from ai_core.api import _wire   # or wire manually (below)
 
-emb    = OpenAIEmbedder()                                # real semantic quality
-roster = restaurant_coo_roster(web_search=my_search)     # 16 specialists, inject search
-coo    = COO(roster,
-             memory=Memory(MongoKV(db.coo_memory)),
-             cache=SemanticCache(MongoVectorStore(db.coo_cache, emb)),
-             rag=RAG(MongoVectorStore(db.coo_knowledge, emb)),
-             rag_namespace=f"restaurant:{restaurant_id}")
+# Easiest: the API auto-wires Mongo from MONGO_URL. To build manually:
+from ai_core import Memory, RAG, SemanticCache
+from ai_core.stores import MongoKV, MongoVectorStore
+from ai_core.embeddings import default_embedder   # -> OpenAIEmbedder when OPENAI_API_KEY set
+from motor.motor_asyncio import AsyncIOMotorClient
+
+db  = AsyncIOMotorClient("mongodb://localhost:27017")["ai_core"]
+emb = default_embedder()
+coo = COO(restaurant_coo_roster(),                    # live Gemini search is ON by default
+          memory=Memory(MongoKV(db.coo_memory)),      # <-- memory saved in DB
+          cache=SemanticCache(MongoVectorStore(db.coo_cache, emb)),
+          rag=RAG(MongoVectorStore(db.coo_knowledge, emb)),
+          rag_namespace=f"restaurant:{restaurant_id}")
 ```
 
 **Step 6 — Expose the streaming endpoint** (mount on your FastAPI app)
@@ -193,8 +236,9 @@ while (true) {
 
 | File | What |
 |------|------|
-| `config.py` | models, thresholds, knobs (all env-overridable) |
-| `llm.py` | LLM wrappers + generic **tool-calling loop** (`run_with_tools`) |
+| `config.py` | models, thresholds, knobs, **backend auto-detect** (env-overridable) |
+| `backends.py` | **OpenAIBackend** (official SDK) + **EmergentBackend** (Universal Key) |
+| `llm.py` | thin backend-agnostic helpers (`cheap_llm`, `strong_llm`, `stream_llm`) |
 | `embeddings.py` | `OpenAIEmbedder` (prod) / `DevHashEmbedder` (no-network dev) |
 | `stores.py` | KV + Vector stores: `InMemory*` and `Mongo*` (brute-force cosine, portable) |
 | `memory.py` | 3-tier memory: short-term + rolling summary + durable **profile/tone** |
@@ -224,7 +268,7 @@ while (true) {
 - **Vector search at scale:** `MongoVectorStore.search` uses brute-force cosine (fine for thousands of rows). Swap for **Atlas `$vectorSearch`**, **pgvector**, or **Qdrant** — keep the same `add/search` interface.
 - **Observability:** log per `handle()` run: chosen agents, tokens, latency, cache-hit, 👍/👎. Add a `run_id` to every event for tracing/replay.
 - **Guards:** already included — per-agent `timeout`, `MAX_TOOL_STEPS` loop cap, `MAX_PARALLEL_AGENTS` semaphore.
-- **Outside Emergent:** replace the 3 functions in `llm.py` (`_collect`, `stream_llm`, `run_with_tools`) with official OpenAI/Gemini SDK calls. Everything else is provider-agnostic.
+- **Outside Emergent:** set `OPENAI_API_KEY` (+ `GEMINI_API_KEY`) and it uses the official SDKs automatically via `backends.py` — no code changes. Force with `AI_CORE_BACKEND=openai`.
 - **Eval gating in CI:**
   ```python
   report = await run_evals("ai_core/evals/cases.jsonl", my_answer_fn)
