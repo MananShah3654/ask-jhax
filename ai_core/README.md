@@ -47,7 +47,92 @@ async def on_event(e):  # {t:'plan'|'agent_start'|'agent_done'|'tool'|'delta'|'c
 answer = await coo.handle(user_msg, user_id=uid, history=history, on_event=on_event)
 ```
 
-## FastAPI SSE server (plug into any UI)
+## Integration Procedure (follow in order)
+
+**Step 1 — Copy the package**
+Place the whole `ai_core/` folder inside your backend, next to your server entrypoint:
+```
+your-app/backend/
+├── server.py
+└── ai_core/        ← paste here
+```
+
+**Step 2 — Install dependencies**
+```bash
+pip install fastapi uvicorn pydantic motor emergentintegrations
+# optional, for real embeddings:
+pip install openai
+```
+
+**Step 3 — Set environment variables**
+```bash
+export EMERGENT_LLM_KEY=sk-emergent-...     # or OPENAI_API_KEY for raw OpenAI
+# optional overrides:
+export CACHE_THRESHOLD=0.92
+export RAG_TOP_K=4
+```
+
+**Step 4 — Provide a live web-search function** (your app owns this)
+```python
+async def my_search(query: str) -> dict:
+    # call your search provider (Gemini googleSearch, SerpAPI, Bing, etc.)
+    return {"query": query, "results": "...", "sources": [...]}
+```
+
+**Step 5 — Wire the COO** (choose in-memory for dev, Mongo for prod)
+```python
+from ai_core import COO, Memory, RAG, SemanticCache, restaurant_coo_roster
+from ai_core.stores import MongoKV, MongoVectorStore
+from ai_core.embeddings import OpenAIEmbedder          # or DevHashEmbedder for dev
+
+emb    = OpenAIEmbedder()                                # real semantic quality
+roster = restaurant_coo_roster(web_search=my_search)     # 16 specialists, inject search
+coo    = COO(roster,
+             memory=Memory(MongoKV(db.coo_memory)),
+             cache=SemanticCache(MongoVectorStore(db.coo_cache, emb)),
+             rag=RAG(MongoVectorStore(db.coo_knowledge, emb)),
+             rag_namespace=f"restaurant:{restaurant_id}")
+```
+
+**Step 6 — Expose the streaming endpoint** (mount on your FastAPI app)
+```python
+from ai_core.api import build_router
+app.include_router(
+    build_router(web_search=my_search, mongo_db=db, rag_namespace=f"restaurant:{rid}"),
+    prefix="/api")
+```
+…or run standalone: `uvicorn ai_core.api:app --host 0.0.0.0 --port 8080`.
+
+**Step 7 — (Optional) Seed RAG with the restaurant's real docs**
+```python
+rag = RAG(MongoVectorStore(db.coo_knowledge, emb))
+await rag.ingest(menu_text,   namespace=f"restaurant:{rid}", source="menu")
+await rag.ingest(pnl_report,  namespace=f"restaurant:{rid}", source="pnl")
+```
+
+**Step 8 — Call it from the frontend** (SSE)
+`POST /api/coo/chat/stream` with `{message, user_id, session_id}` and read the stream
+(vanilla-JS client below). Show `agent_start` events as "🔎 <agent> working…".
+
+**Step 9 — (Optional) Add eval gating in CI**
+```python
+from ai_core.evals.runner import run_evals
+report = await run_evals("ai_core/evals/cases.jsonl", my_answer_fn)
+assert report["pass_rate"] >= 0.8
+```
+
+**Step 10 — Extend for true 360°**
+Add specialists or tools without touching core logic:
+```python
+from ai_core.agents import Agent
+roster = restaurant_coo_roster(web_search=my_search, extra={
+    "sommelier": Agent("sommelier", "Wine/bev pairing & margin", "<system prompt>")
+})
+```
+
+---
+
+
 
 `ai_core/api.py` gives you a ready streaming endpoint.
 
