@@ -1,0 +1,11 @@
+# ai_core dependencies
+emergentintegrations
+fastapi
+uvicorn
+pydantic
+python-multipart          # file uploads
+motor                     # only if using Mongo stores
+# optional / by feature:
+pypdf                     # ingest PDF files
+openpyxl                  # ingest .xlsx files
+openai                    # only if using OpenAIEmbedder (real embeddings)

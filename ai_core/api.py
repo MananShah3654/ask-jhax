@@ -20,7 +20,7 @@ Use it two ways:
 import asyncio
 import json
 
-from fastapi import FastAPI, APIRouter
+from fastapi import FastAPI, APIRouter, UploadFile, File, Form
 from fastapi.responses import StreamingResponse
 from starlette.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
@@ -81,16 +81,30 @@ def _wire(web_search=None, mongo_db=None, rag_namespace="global", roster=None):
     roster = roster or restaurant_coo_roster(web_search=web_search)
     coo = COO(roster, memory=memory, cache=cache, rag=rag, rag_namespace=rag_namespace)
     history = _HistoryStore(mongo_db)
-    return coo, history
+    return coo, history, rag
 
 
 def build_router(web_search=None, mongo_db=None, rag_namespace="global", roster=None) -> APIRouter:
     router = APIRouter()
-    coo, history = _wire(web_search, mongo_db, rag_namespace, roster)
+    coo, history, rag = _wire(web_search, mongo_db, rag_namespace, roster)
 
     @router.get("/coo/health")
     async def health():
         return {"status": "ok", "agents": list(coo.roster.keys())}
+
+    @router.post("/coo/ingest")
+    async def ingest(file: UploadFile = File(...),
+                     namespace: str = Form(None),
+                     source: str = Form(None)):
+        from .ingest import ingest_file
+        data = await file.read()
+        try:
+            n = await ingest_file(rag, data, file.filename,
+                                  namespace=namespace or rag_namespace, source=source)
+        except Exception as e:
+            return {"ok": False, "error": str(e), "file": file.filename}
+        return {"ok": True, "chunks": n, "file": file.filename,
+                "namespace": namespace or rag_namespace}
 
     @router.post("/coo/chat/stream")
     async def chat_stream(body: ChatBody):

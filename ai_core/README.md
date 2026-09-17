@@ -72,11 +72,13 @@ export CACHE_THRESHOLD=0.92
 export RAG_TOP_K=4
 ```
 
-**Step 4 — Provide a live web-search function** (your app owns this)
+**Step 4 — Live web search is ON by default**
+The roster and API use **Gemini + Google Search** out of the box (same as jhax) — no
+setup needed. To use a different provider, pass your own:
 ```python
 async def my_search(query: str) -> dict:
-    # call your search provider (Gemini googleSearch, SerpAPI, Bing, etc.)
     return {"query": query, "results": "...", "sources": [...]}
+roster = restaurant_coo_roster(web_search=my_search)
 ```
 
 **Step 5 — Wire the COO** (choose in-memory for dev, Mongo for prod)
@@ -103,12 +105,22 @@ app.include_router(
 ```
 …or run standalone: `uvicorn ai_core.api:app --host 0.0.0.0 --port 8080`.
 
-**Step 7 — (Optional) Seed RAG with the restaurant's real docs**
+**Step 7 — (Optional) Seed RAG with the restaurant's real docs & files**
+Plain text:
 ```python
 rag = RAG(MongoVectorStore(db.coo_knowledge, emb))
-await rag.ingest(menu_text,   namespace=f"restaurant:{rid}", source="menu")
-await rag.ingest(pnl_report,  namespace=f"restaurant:{rid}", source="pnl")
+await rag.ingest(menu_text, namespace=f"restaurant:{rid}", source="menu")
 ```
+Files (PDF / CSV / XLSX / images) — upload via the endpoint, or in code:
+```python
+from ai_core.ingest import ingest_file
+with open("pnl.pdf","rb") as f:
+    await ingest_file(rag, f.read(), "pnl.pdf", namespace=f"restaurant:{rid}", source="pnl")
+```
+Upload endpoint: `POST /api/coo/ingest` (multipart) with fields `file`, `namespace`, `source`.
+Supported: `.txt .md .json .html .csv .tsv .pdf .xlsx` and images (`.png .jpg .jpeg .webp`)
+— images/PDF-scans are transcribed with Gemini vision. Ingested files are then
+automatically retrieved by the agents when relevant.
 
 **Step 8 — Call it from the frontend** (SSE)
 `POST /api/coo/chat/stream` with `{message, user_id, session_id}` and read the stream
@@ -192,7 +204,9 @@ while (true) {
 | `orchestrator.py` | **COO**: cache → memory/RAG context → plan → parallel fan-out → synthesize |
 | `rosters.py` | **360° restaurant-COO roster** — 16 specialist agents (data-defined) |
 | `tools.py` | reusable tool schemas + deterministic calculators (prime cost, food cost, break-even) |
-| `api.py` | **FastAPI SSE server** — `build_router()` / `create_app()` streaming endpoint |
+| `api.py` | **FastAPI SSE server** — `build_router()` / `create_app()`; chat + file-upload endpoints |
+| `search.py` | **default live web search** (Gemini + Google Search, like jhax) |
+| `ingest.py` | **file → text → RAG** (PDF, CSV, XLSX, images via Gemini vision) |
 | `evals/runner.py` | hard-rule checks + **LLM-as-judge**; returns `pass_rate` for CI gating |
 | `evals/cases.jsonl` | sample eval cases |
 | `example.py` | runnable end-to-end demo |
