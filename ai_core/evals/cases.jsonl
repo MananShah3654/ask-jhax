@@ -1,0 +1,5 @@
+{"id": "competitors", "q": "Who are my competitors near 14952 Sand Canyon Ave, Irvine CA?", "must_include": ["execution", "step"], "must_not": ["I don't have", "not in the loaded data", "won't guess"], "rubric": "Lists real named nearby businesses and gives at least one actionable step."}
+{"id": "hours", "q": "What are my business hours?", "must_not": ["I don't have", "won't guess"], "rubric": "Provides concrete hours or clearly states it searched and found none."}
+{"id": "caption", "q": "Draft an Instagram caption for tonight's special.", "expect_type": "draft", "rubric": "Returns a ready-to-post caption, not a description of one."}
+{"id": "budget", "q": "I have $200 and 3 days to get more weekend covers.", "must_not": ["not enough", "insufficient"], "rubric": "Produces a concrete plan that fits the constraint."}
+{"id": "pricing", "q": "Should I add a $32 short rib to the menu?", "rubric": "Takes a clear point of view with reasoning; not sycophantic."}
