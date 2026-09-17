@@ -268,6 +268,64 @@ def test_research_returns_4plus_competitors(restaurant_id):
     assert all(len(n) > 1 for n in names)
 
 
+def test_chat_stream_date_awareness_next_two_weeks():
+    """BUG FIX (date awareness): asking about the next 2 weeks must be anchored
+    to the current UTC month/date via now_line(), NOT a stale past date. Also
+    validates that a web_search tool event fires and sources SSE items are
+    {title,url} objects."""
+    from datetime import datetime, timezone
+    rid = _existing_or_new_rid()
+    if not rid:
+        pytest.skip("no existing restaurant to reuse")
+
+    now = datetime.now(timezone.utc)
+    current_month = now.strftime("%B")           # e.g. "January"
+    current_year = str(now.year)
+
+    with requests.post(f"{API}/restaurants/{rid}/chat/stream",
+                       json={"message": "What's happening in my area in the next 2 weeks I can cash in on?"},
+                       stream=True, timeout=240) as resp:
+        assert resp.status_code == 200
+        events = read_sse(resp, max_events=20000)
+
+    types = [e["type"] for e in events]
+    assert "error" not in types, f"error events: {[e for e in events if e['type']=='error']}"
+    assert types and types[-1] == "done"
+
+    tool_evs = [e for e in events if e["type"] == "tool"]
+    assert any(e.get("name") == "web_search" for e in tool_evs), \
+        f"no web_search tool event; got {tool_evs}"
+
+    src_evs = [e for e in events if e.get("type") == "sources"]
+    assert src_evs, "no sources SSE events emitted"
+    for ev in src_evs:
+        items = ev.get("items") or []
+        for it in items:
+            assert isinstance(it, dict)
+            assert "title" in it and "url" in it
+            assert isinstance(it["title"], str) and isinstance(it["url"], str)
+            assert it["url"].startswith("http")
+
+    content = "".join(e.get("content", "") for e in events if e["type"] == "delta")
+    assert len(content) > 100, f"content too short: {content!r}"
+
+    # Anchor validation: mention current month or year, avoid clearly-past months
+    all_months = ["January","February","March","April","May","June","July","August","September","October","November","December"]
+    idx = all_months.index(current_month)
+    # months strictly before current in same year — those anchoring the answer to a past date
+    past_months = all_months[:idx]
+    low = content.lower()
+    # must reference current month or current year
+    assert current_month.lower() in low or current_year in low, \
+        f"answer not anchored to current month {current_month} or year {current_year}: {content[:500]}"
+    # ensure no clearly-past month is used as the anchoring timeframe. Allow if not present.
+    stale_hits = [m for m in past_months if m.lower() in low]
+    # It's ok if a past month is mentioned historically, but current month must dominate/appear.
+    # Fail only if a past month appears AND current month does not.
+    if stale_hits and current_month.lower() not in low:
+        pytest.fail(f"answer anchored to stale past month(s) {stale_hits}, missing current month {current_month}: {content[:500]}")
+
+
 # ---- Delete ----
 def test_delete_restaurant(restaurant_id):
     rid, _ = restaurant_id
